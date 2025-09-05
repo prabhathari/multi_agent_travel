@@ -3,3 +3,10 @@ uvicorn
 streamlit
 requests
 pydantic
+python-dotenv
+groq
+google-generativeai
+openai
+tenacity
+httpx
+aiohttp

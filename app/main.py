@@ -1,13 +1,27 @@
-# app/main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Any
+import traceback
 
-app = FastAPI(title="Mini Multi-Agent Travel Planner")
+# Import agents
+from app.agents.destination_agent import DestinationAgent
+from app.agents.itinerary_agent import ItineraryAgent
+from app.agents.budget_agent import BudgetAgent
+from app.agents.safety_agent import SafetyAgent
 
-# -----------------------------
-# Request / Response Models
-# -----------------------------
+app = FastAPI(title="Multi-Agent Travel Planner API")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Request/Response Models
 class TripRequest(BaseModel):
     traveler_name: str
     origin_city: str
@@ -19,70 +33,90 @@ class TripRequest(BaseModel):
 
 class TripResponse(BaseModel):
     destination: str
+    destination_info: Dict[str, Any]
     itinerary: List[Dict[str, Any]]
-    estimated_cost_breakdown: Dict[str, float]
+    budget_analysis: Dict[str, Any]
+    safety_info: Dict[str, Any]
     within_budget: bool
-    safety_notes: List[str]
-    messages: List[Dict[str, str]]
+    agent_messages: List[Dict[str, str]]
 
-# -----------------------------
-# Mock LLM (simulated responses)
-# -----------------------------
-def mock_llm_response(agent: str, context: Dict[str, Any]) -> str:
-    if agent == "DestinationAgent":
-        if "beach" in context["interests"]:
-            return "Bali"
-        elif "mountains" in context["interests"]:
-            return "Nepal"
-        else:
-            return "Paris"
-    elif agent == "ItineraryAgent":
-        return "Day 1: Arrival and local food tour. Day 2: Beach or museum. Day 3: Hiking or temple visit."
-    elif agent == "BudgetAgent":
-        return "Flights: 400, Hotel: 300, Food: 150, Activities: 100"
-    elif agent == "SafetyAgent":
-        return "Carry travel insurance. Be aware of local customs."
-    return "No response"
+@app.get("/")
+def read_root():
+    return {"message": "Multi-Agent Travel Planner API", "status": "running"}
 
-# -----------------------------
-# Multi-Agent Orchestrator
-# -----------------------------
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
 @app.post("/plan", response_model=TripResponse)
-def generate_trip_plan(request: TripRequest):
-    messages = []
+async def generate_trip_plan(request: TripRequest):
+    """Generate a complete trip plan using multiple AI agents"""
+    
+    agent_messages = []
+    
+    try:
+        # Convert request to dict for easier passing
+        context = request.dict()
+        
+        # Step 1: Destination Selection
+        dest_agent = DestinationAgent()
+        destination_info = dest_agent.process(context)
+        context['destination'] = destination_info['destination']
+        
+        agent_messages.append({
+            "agent": "DestinationAgent",
+            "role": "Destination Expert",
+            "content": f"Selected {destination_info['destination']}: {destination_info.get('reason', '')}"
+        })
+        
+        # Step 2: Itinerary Planning
+        itin_agent = ItineraryAgent()
+        itinerary = itin_agent.process(context)
+        
+        agent_messages.append({
+            "agent": "ItineraryAgent",
+            "role": "Itinerary Planner",
+            "content": f"Created {len(itinerary)}-day detailed itinerary"
+        })
+        
+        # Step 3: Budget Analysis
+        budget_agent = BudgetAgent()
+        budget_analysis = budget_agent.process(context)
+        
+        total_cost = budget_analysis.get('total', sum(budget_analysis.get('breakdown', {}).values()))
+        within_budget = total_cost <= request.budget_total
+        
+        agent_messages.append({
+            "agent": "BudgetAgent",
+            "role": "Budget Analyst",
+            "content": f"Estimated total cost: ${total_cost:.2f} (Budget: ${request.budget_total})"
+        })
+        
+        # Step 4: Safety Advisory
+        safety_agent = SafetyAgent()
+        safety_info = safety_agent.process(context)
+        
+        agent_messages.append({
+            "agent": "SafetyAgent",
+            "role": "Safety Advisor",
+            "content": f"Safety level: {safety_info.get('safety_level', 'Unknown')}, Visa required: {safety_info.get('visa_required', 'Check requirements')}"
+        })
+        
+        return TripResponse(
+            destination=destination_info['destination'],
+            destination_info=destination_info,
+            itinerary=itinerary,
+            budget_analysis=budget_analysis,
+            safety_info=safety_info,
+            within_budget=within_budget,
+            agent_messages=agent_messages
+        )
+        
+    except Exception as e:
+        print(f"Error in trip planning: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error generating trip plan: {str(e)}")
 
-    # Destination Agent
-    destination = mock_llm_response("DestinationAgent", request.dict())
-    messages.append({"agent": "DestinationAgent", "role": "planner", "content": destination})
-
-    # Itinerary Agent
-    itinerary_text = mock_llm_response("ItineraryAgent", {"destination": destination, **request.dict()})
-    messages.append({"agent": "ItineraryAgent", "role": "planner", "content": itinerary_text})
-
-    itinerary = [
-        {"day": i+1, "highlights": [part.strip()], "notes": "Auto-generated"}
-        for i, part in enumerate(itinerary_text.split(".")[:-1])
-    ]
-
-    # Budget Agent
-    budget_text = mock_llm_response("BudgetAgent", request.dict())
-    messages.append({"agent": "BudgetAgent", "role": "analyst", "content": budget_text})
-
-    cost_items = {kv.split(":")[0].strip(): float(kv.split(":")[1].strip())
-                  for kv in budget_text.split(",")}
-    total_cost = sum(cost_items.values())
-    within_budget = total_cost <= request.budget_total
-
-    # Safety Agent
-    safety_text = mock_llm_response("SafetyAgent", {"destination": destination})
-    messages.append({"agent": "SafetyAgent", "role": "advisor", "content": safety_text})
-    safety_notes = safety_text.split(".")
-
-    return TripResponse(
-        destination=destination,
-        itinerary=itinerary,
-        estimated_cost_breakdown=cost_items,
-        within_budget=within_budget,
-        safety_notes=[note.strip() for note in safety_notes if note.strip()],
-        messages=messages,
-    )
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
