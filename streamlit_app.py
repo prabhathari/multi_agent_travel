@@ -39,7 +39,7 @@ with st.sidebar:
     #api_url = st.text_input("API URL", value="http://localhost/api")
     api_url = "http://backend:8000" 
     st.markdown("---")
-    st.markdown("### 🤖 AI Agents"
+    st.markdown("### 🤖 AI Agents")
     agents = [
         ("📍", "Destination Expert", "Finds perfect destinations"),
         ("🗓️", "Itinerary Planner", "Creates day-by-day plans"),
@@ -84,11 +84,11 @@ with col1:
         )
         
         submitted = st.form_submit_button("🚀 Generate Travel Plan", use_container_width=True)
-     col1, col2, col3 = st.columns([1, 1, 1])
-        with col2:
-          if st.button("🔄 Reset Form", use_container_width=True):
-             st.session_state.clear()
-             st.rerun()
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("🔄 Reset Form", use_container_width=True):
+           st.session_state.clear()
+           st.rerun()
 with col2:
     st.subheader("📊 Quick Stats")
     if 'plan' in st.session_state:

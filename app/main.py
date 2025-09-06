@@ -80,6 +80,7 @@ class TripRequest(BaseModel):
     budget_total: float
     interests: List[str]
     visa_passport: str
+    preferred_destination: str = "" 
     
     # Validation
     class Config:
