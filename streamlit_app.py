@@ -34,19 +34,25 @@ st.markdown("Let our AI agents collaborate to plan your perfect trip!")
 
 # Sidebar for configuration
 with st.sidebar:
+    st.markdown("## ⚙️ Settings")
     st.header("⚙️ Configuration")
-    api_url = st.text_input("API URL", value="http://backend:8000")
+    #api_url = st.text_input("API URL", value="http://localhost/api")
+    api_url = "http://backend:8000" 
+    st.markdown("---")
+    st.markdown("### 🤖 AI Agents"
+    agents = [
+        ("📍", "Destination Expert", "Finds perfect destinations"),
+        ("🗓️", "Itinerary Planner", "Creates day-by-day plans"),
+        ("💰", "Budget Analyst", "Manages your budget"),
+        ("🛡️", "Safety Advisor", "Ensures safe travel")
+    ]
+    
+    for icon, name, desc in agents:
+        st.markdown(f"{icon} **{name}**")
+        st.caption(desc)
     
     st.markdown("---")
-    st.markdown("### 🤖 AI Agents")
-    st.info("""
-    **Active Agents:**
-    - 📍 Destination Expert
-    - 🗓️ Itinerary Planner
-    - 💰 Budget Analyst
-    - 🛡️ Safety Advisor
-    """)
-
+    st.info("💡 Tip: Leave destination blank for AI suggestions!")
 # Main form
 col1, col2 = st.columns([2, 1])
 
@@ -58,6 +64,7 @@ with col1:
         with col_a:
             traveler_name = st.text_input("Your Name", value="Alex")
             origin_city = st.text_input("Origin City", value="Hyderabad")
+            destination_override = st.text_input("Preferred Destination (optional)", placeholder="Leave blank for AI suggestion")
             visa_passport = st.text_input("Passport Nationality", value="Indian")
         
         with col_b:
@@ -77,7 +84,11 @@ with col1:
         )
         
         submitted = st.form_submit_button("🚀 Generate Travel Plan", use_container_width=True)
-
+     col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+          if st.button("🔄 Reset Form", use_container_width=True):
+             st.session_state.clear()
+             st.rerun()
 with col2:
     st.subheader("📊 Quick Stats")
     if 'plan' in st.session_state:
@@ -100,7 +111,8 @@ if submitted:
             "month": month,
             "budget_total": budget_total,
             "interests": interests,
-            "visa_passport": visa_passport
+            "visa_passport": visa_passport,
+            "preferred_destination": destination_override
         }
         
         try:

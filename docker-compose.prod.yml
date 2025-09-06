@@ -8,12 +8,13 @@ services:
       dockerfile: Dockerfile.prod
     container_name: travel-backend
     restart: always
-    environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - LLM_PROVIDER=${LLM_PROVIDER:-groq}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost}
-      - DEBUG=false
+    env_file: .env.prod
+#    environment:
+ #     - GROQ_API_KEY=${GROQ_API_KEY}
+  #    - GEMINI_API_KEY=${GEMINI_API_KEY}
+   #   - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+    #  - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost}
+     # - DEBUG=false
     networks:
       - travel-net
     expose:

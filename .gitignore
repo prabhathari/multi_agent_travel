@@ -15,5 +15,12 @@ venv/
 # Streamlit cache
 .streamlit/
 
+streamlit_app.backup.py
+status.sh
+update.sh
+ssl
+ssl/*
 # Logs
 *.log
+#env
+.env.prod

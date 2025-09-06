@@ -39,11 +39,11 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add security middleware - TrustedHost
-if os.getenv("ALLOWED_HOSTS"):
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=os.getenv("ALLOWED_HOSTS", "localhost").split(",")
-    )
+#if os.getenv("ALLOWED_HOSTS"):
+  #  app.add_middleware(
+   #     TrustedHostMiddleware,
+    #    allowed_hosts=os.getenv("ALLOWED_HOSTS", "localhost").split(",")
+   # )
 
 # Add GZip compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
