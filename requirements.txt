@@ -10,3 +10,5 @@ openai
 tenacity
 httpx
 aiohttp
+slowapi
+python-multipart
