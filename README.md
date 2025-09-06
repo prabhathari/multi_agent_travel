@@ -72,6 +72,7 @@ Access the application
 🚢 Production Deployment on Cloud (GCP/AWS/Azure)
 Complete Production Setup Script
 Save this script as setup_production.sh on your VM:
+```bash
 bash#!/bin/bash
 # setup_production.sh - Complete automated production deployment
 
@@ -301,6 +302,8 @@ echo "  🔄 Update:  /opt/multi_agent_travel/update.sh"
 echo ""
 echo -e "${RED}IMPORTANT: Save your server IP: $EXTERNAL_IP${NC}"
 echo "================================================"
+```
+
 How to Deploy to Production
 
 Create Ubuntu VM (GCP, AWS, or Azure)
