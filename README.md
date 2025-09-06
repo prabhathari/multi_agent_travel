@@ -373,6 +373,7 @@ multi_agent_travel/
 ```
 
 🔧 Configuration
+```bash
 Environment Variables
 VariableDescriptionDefaultRequiredGROQ_API_KEYYour Groq API key-YesGEMINI_API_KEYGoogle Gemini API key-OptionalLLM_PROVIDERWhich LLM to usegroqNoGROQ_MODELModel namellama-3.3-70b-versatileNoMODEL_TEMPERATURELLM creativity (0-1)0.7NoMAX_TOKENSMax response length1000No
 🐳 Docker Commands Reference
@@ -392,12 +393,17 @@ docker-compose restart
 docker-compose -f docker-compose.prod.yml up -d
 docker-compose -f docker-compose.prod.yml logs -f
 docker-compose -f docker-compose.prod.yml down
+```
 
 # Update and rebuild
+```bash
 git pull
 docker-compose down
 docker-compose up --build -d
+```
+
 📚 API Documentation
+```bash
 POST /plan
 Generate a travel plan.
 Request:
@@ -411,6 +417,8 @@ json{
   "interests": ["culture", "food", "technology"],
   "visa_passport": "US"
 }
+```
+```bash
 🔍 Troubleshooting
 Check if services are running
 bashdocker ps
@@ -421,23 +429,27 @@ docker exec travel-backend env | grep GROQ
 Restart everything
 bashdocker-compose down
 docker-compose up --build -d
+```
+
 🤝 Contributing
+```bash
 
 Fork the repository
 Create feature branch
 Commit changes
 Push to branch
 Open Pull Request
+```
 
 📄 License
+```bash
 MIT License - feel free to use this project for any purpose.
 🙏 Acknowledgments
 
 Powered by Groq and Google Gemini
 Built with FastAPI and Streamlit
-
-
-Made with ❤️ by Prabhat Hari
+```
+```bash
 EOF
 echo "✅ README.md with setup script created successfully!"
 echo ""
@@ -445,7 +457,7 @@ echo "📝 To push to GitHub:"
 echo "git add README.md"
 echo "git commit -m 'Add comprehensive README with production setup script'"
 echo "git push origin main"
-
+```
 This README includes:
 1. The complete production setup script inline
 2. Step-by-step instructions for using the script
