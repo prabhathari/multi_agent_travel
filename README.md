@@ -68,7 +68,7 @@ Access the application
 🌐 Main App: http://localhost
 📚 API Docs: http://localhost/docs
 🔍 Health Check: http://localhost/health
-
+```
 🚢 Production Deployment on Cloud (GCP/AWS/Azure)
 Complete Production Setup Script
 Save this script as setup_production.sh on your VM:
@@ -345,7 +345,7 @@ Repository cloning
 Service startup
 Auto-restart on reboot
 Log rotation
-
+```bash
 📁 Project Structure
 multi_agent_travel/
 ├── app/
@@ -370,6 +370,8 @@ multi_agent_travel/
 ├── nginx.conf             # Development nginx
 ├── nginx.prod.conf        # Production nginx
 └── README.md              # This file
+```
+
 🔧 Configuration
 Environment Variables
 VariableDescriptionDefaultRequiredGROQ_API_KEYYour Groq API key-YesGEMINI_API_KEYGoogle Gemini API key-OptionalLLM_PROVIDERWhich LLM to usegroqNoGROQ_MODELModel namellama-3.3-70b-versatileNoMODEL_TEMPERATURELLM creativity (0-1)0.7NoMAX_TOKENSMax response length1000No
