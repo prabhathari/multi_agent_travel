@@ -2,6 +2,11 @@ import streamlit as st
 import requests
 import json
 from datetime import datetime
+import uuid
+from typing import List, Dict
+import asyncio
+
+
 from typing import Dict, List, Any
 import time
 
@@ -13,90 +18,245 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Enhanced CSS for Phase 2
+# COMPACT CENTERED CSS - IMPROVED VERSION
 st.markdown("""
     <style>
-    .main { padding: 2rem; }
-    
-    /* Login/Signup styling */
-    .login-container {
-        max-width: 400px;
-        margin: 2rem auto;
-        padding: 2rem;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    /* Main container - centered with max width */
+    .main { 
+        padding: 0.5rem 1rem; 
+        max-width: 1000px;
+        margin: 0 auto;
     }
     
-    /* Button styling */
+    .block-container {
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+    
+    .stApp > div:first-child {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    
+    /* Compact spacing */
+    h1, h2, h3 { margin-top: 1rem !important; margin-bottom: 0.5rem !important; }
+    
+    /* Title section */
+    .title-section {
+        text-align: center;
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+    }
+    
+    .title-section h1 {
+        font-size: 2.5rem;
+        margin: 0;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Buttons */
     .stButton > button {
         border-radius: 20px;
         background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
+        font-weight: 600;
+        height: 2.5rem;
         transition: all 0.3s ease;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
     }
     
-    /* Guest button styling */
+    /* Guest section */
+    .guest-section { max-width: 500px; margin: 1rem auto; text-align: center; }
+    
     .guest-button > button {
         background: linear-gradient(90deg, #28a745 0%, #20c997 100%) !important;
-        border: none !important;
+        height: 2.8rem !important;
+        font-size: 1.1rem !important;
     }
     
-    /* Metrics styling */
-    div[data-testid="metric-container"] {
-        background: linear-gradient(90deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 8px;
+    /* User profiles */
+    .user-profile, .guest-profile {
         padding: 1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    /* User profile styling */
-    .user-profile {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem;
-        border-radius: 10px;
+        border-radius: 12px;
         color: white;
         text-align: center;
         margin-bottom: 1rem;
     }
     
-    .guest-profile {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
+    .user-profile { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .guest-profile { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
     
     .user-avatar {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
+        width: 40px; height: 40px; border-radius: 50%;
         background: rgba(255,255,255,0.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 1rem auto;
-        font-size: 24px;
-        font-weight: bold;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 0.5rem; font-size: 16px; font-weight: bold;
     }
     
-    /* Trip cards */
-    .trip-card {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #667eea;
-        margin: 0.5rem 0;
+    /* Cards and metrics */
+    div[data-testid="metric-container"] {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 10px;
+        padding: 0.5rem;
+        margin: 0.25rem 0;
+        text-align: center;
     }
+    
+    .dashboard-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 0.5rem 0;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .feature-cards {
+        display: flex; gap: 1rem; margin: 1rem 0;
+        flex-wrap: wrap; justify-content: center;
+    }
+    
+    .feature-card {
+        flex: 1; min-width: 250px; max-width: 300px;
+        background: white; padding: 1rem; border-radius: 10px;
+        text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    /* Forms */
+    .stForm {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 12px;
+        max-width: 800px;
+        margin: 1rem auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    .center-content { max-width: 800px; margin: 0 auto; }
+    
+    /* Hide streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Footer */
+    .footer-section {
+        background: #f8f9fa; border-radius: 10px;
+        margin-top: 1rem; padding: 1rem; text-align: center;
+    }
+    
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .main { padding: 0.25rem 0.5rem; }
+        .title-section h1 { font-size: 2rem; }
+        .feature-cards { flex-direction: column; }
+    }
+    
+    .stApp { background: #fafaba; }
+    
+    /* Phase 3A: Chat Interface Styles */
+    .chat-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .chat-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        text-align: center;
+        border-radius: 15px 15px 0 0;
+    }
+
+    .message-bubble {
+        margin: 0.75rem 0;
+        max-width: 75%;
+        padding: 0.75rem 1rem;
+        border-radius: 15px;
+        word-wrap: break-word;
+        line-height: 1.4;
+    }
+
+    .user-message {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        margin-left: auto;
+        text-align: right;
+        border-bottom-right-radius: 5px;
+    }
+
+    .ai-message {
+        background: white;
+        color: #333;
+        margin-right: auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: 1px solid #e9ecef;
+        border-bottom-left-radius: 5px;
+    }
+
+    .agent-avatar {
+        display: inline-block;
+        width: 28px;
+        height: 28px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        border-radius: 50%;
+        text-align: center;
+        line-height: 28px;
+        color: white;
+        font-weight: bold;
+        margin-right: 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .destination-agent { background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%); }
+    .budget-agent { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); }
+    .itinerary-agent { background: linear-gradient(135deg, #007bff 0%, #6610f2 100%); }
+    .safety-agent { background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%); }
+
+    .chat-messages-container {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 1rem;
+        background: #f8f9fa;
+    }
+
+    .quick-replies {
+        padding: 0.5rem 1rem;
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        background: #f8f9fa;
+    }
+
+    .quick-reply-btn {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        padding: 0.25rem 0.75rem;
+        border-radius: 15px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .quick-reply-btn:hover {
+        background: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+
     </style>
 """, unsafe_allow_html=True)
 
@@ -118,17 +278,16 @@ if 'user_stats' not in st.session_state:
     st.session_state.user_stats = {}
 if 'guest_trips' not in st.session_state:
     st.session_state.guest_trips = []
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "🏠 Dashboard"
 
-# Helper functions for API calls
+# Helper functions (keep your existing ones)
 def make_api_request(endpoint, method="GET", data=None, auth_required=True):
-    """Make authenticated API request with proper error handling"""
     headers = {"Content-Type": "application/json"}
-    
     if auth_required and st.session_state.access_token:
         headers["Authorization"] = f"Bearer {st.session_state.access_token}"
     
     url = f"{BACKEND_URL}{endpoint}"
-    
     try:
         if method == "GET":
             response = requests.get(url, headers=headers, timeout=30)
@@ -136,25 +295,15 @@ def make_api_request(endpoint, method="GET", data=None, auth_required=True):
             response = requests.post(url, headers=headers, json=data, timeout=60)
         elif method == "PUT":
             response = requests.put(url, headers=headers, json=data, timeout=30)
-        
         return response
-    except requests.exceptions.Timeout:
-        st.error("Request timed out. Please try again.")
-        return None
-    except requests.exceptions.ConnectionError:
-        st.error("Cannot connect to the backend. Please check your connection.")
-        return None
-    except requests.exceptions.RequestException as e:
-        st.error(f"Network error: {str(e)}")
+    except:
         return None
 
 def login_user(email, password):
-    """Login user and store token with improved error handling"""
     try:
         response = requests.post(f"{BACKEND_URL}/auth/login", 
-                               json={"email": email, "password": password},
-                               headers={"Content-Type": "application/json"},
-                               timeout=30)
+                               json={"email": email.strip().lower(), "password": password},
+                               headers={"Content-Type": "application/json"}, timeout=30)
         
         if response.status_code == 200:
             data = response.json()
@@ -162,33 +311,18 @@ def login_user(email, password):
             st.session_state.user_info = data["user"]
             st.session_state.authenticated = True
             st.session_state.guest_mode = False
-            return True, "Login successful!"
+            return True, "✅ Login successful!"
         else:
-            try:
-                error_detail = response.json().get("detail", f"HTTP {response.status_code}")
-            except:
-                error_detail = f"Login failed with status {response.status_code}"
-            return False, error_detail
-            
-    except requests.exceptions.Timeout:
-        return False, "Request timed out. Please try again."
-    except requests.exceptions.ConnectionError:
-        return False, "Cannot connect to server. Please check if the backend is running."
-    except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
+            return False, "❌ Invalid credentials"
+    except:
+        return False, "❌ Connection error"
 
 def signup_user(email, name, password, origin_city="Hyderabad"):
-    """Sign up new user with improved error handling"""
     try:
         response = requests.post(f"{BACKEND_URL}/auth/signup",
-                               json={
-                                   "email": email,
-                                   "name": name,
-                                   "password": password,
-                                   "origin_city": origin_city
-                               },
-                               headers={"Content-Type": "application/json"},
-                               timeout=30)
+                               json={"email": email.strip().lower(), "name": name.strip(),
+                                    "password": password, "origin_city": origin_city},
+                               headers={"Content-Type": "application/json"}, timeout=30)
         
         if response.status_code == 200:
             data = response.json()
@@ -196,42 +330,18 @@ def signup_user(email, name, password, origin_city="Hyderabad"):
             st.session_state.user_info = data["user"]
             st.session_state.authenticated = True
             st.session_state.guest_mode = False
-            return True, "Account created successfully!"
+            return True, "🎉 Account created!"
         else:
-            try:
-                error_detail = response.json().get("detail", f"HTTP {response.status_code}")
-            except:
-                error_detail = f"Signup failed with status {response.status_code}"
-            return False, error_detail
-            
-    except requests.exceptions.Timeout:
-        return False, "Request timed out. Please try again."
-    except requests.exceptions.ConnectionError:
-        return False, "Cannot connect to server. Please check if the backend is running."
-    except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
+            return False, "❌ Account creation failed"
+    except:
+        return False, "❌ Connection error"
 
 def login_as_guest():
-    """Enable guest mode without authentication"""
     st.session_state.authenticated = True
     st.session_state.guest_mode = True
-    st.session_state.access_token = None
-    st.session_state.user_info = {
-        "name": "Guest User",
-        "email": "guest@example.com",
-        "id": "guest",
-        "created_at": datetime.now().isoformat()
-    }
-    st.session_state.user_stats = {
-        "total_trips": len(st.session_state.guest_trips),
-        "total_budget": sum([trip.get("budget_total", 0) for trip in st.session_state.guest_trips]),
-        "average_rating": 4.5,
-        "favorite_destinations": [],
-        "user": st.session_state.user_info
-    }
+    st.session_state.user_info = {"name": "Guest User", "email": "guest@example.com"}
 
 def logout_user():
-    """Logout user and clear session"""
     if st.session_state.access_token and not st.session_state.guest_mode:
         make_api_request("/auth/logout", "POST")
     
@@ -239,103 +349,106 @@ def logout_user():
     st.session_state.guest_mode = False
     st.session_state.access_token = None
     st.session_state.user_info = None
-    st.session_state.user_trips = []
-    st.session_state.user_stats = {}
-    st.session_state.guest_trips = []
+    st.session_state.current_page = "🏠 Dashboard"
 
-def load_user_data():
-    """Load user trips and statistics"""
-    if st.session_state.guest_mode:
-        # For guest mode, use session data
-        st.session_state.user_trips = st.session_state.guest_trips
-        return
-    
-    # Load trips for authenticated users
-    response = make_api_request("/trips")
-    if response and response.status_code == 200:
-        data = response.json()
-        st.session_state.user_trips = data.get("trips", [])
-    
-    # Load stats
-    response = make_api_request("/stats")
-    if response and response.status_code == 200:
-        st.session_state.user_stats = response.json()
-
+# COMPACT LOGIN PAGE
 def render_login_page():
-    """Render login/signup page with guest option"""
-    st.title("AI Travel Planner - Phase 2")
-    st.markdown("### Multi-user travel planning with AI agents")
+    st.markdown("""
+    <div class="title-section">
+        <h1>✈️ AI Travel Planner</h1>
+        <p>Phase 2 - Multi-user AI Travel Planning</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Guest login option at the top
-    st.markdown("### Quick Start")
+    st.markdown('<div class="guest-section"><h3>🚀 Quick Start</h3></div>', unsafe_allow_html=True)
+    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("🎯 Continue as Guest", use_container_width=True, key="guest_btn"):
+        st.markdown('<div class="guest-button">', unsafe_allow_html=True)
+        if st.button("🎯 Continue as Guest", use_container_width=True):
             login_as_guest()
-            st.success("Welcome, Guest! You can plan trips without creating an account.")
+            st.success("🎉 Welcome, Guest!")
+            time.sleep(1)
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown("*Guest mode: Plan trips without registration (data won't be saved permanently)*")
+    st.markdown("<p style='text-align: center; color: #666; font-size: 0.9rem; margin: 0.5rem 0;'><em>Guest mode: Plan trips without registration</em></p>", unsafe_allow_html=True)
+    st.markdown('<hr style="margin: 1rem 0; border: none; height: 1px; background: linear-gradient(90deg, transparent, #ddd, transparent);">', unsafe_allow_html=True)
     
-    st.markdown("---")
-    
+    st.markdown('<div class="center-content">', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["🔑 Login", "📝 Sign Up"])
     
     with tab1:
-        st.markdown("### Welcome Back!")
-        
-        with st.form("login_form"):
-            email = st.text_input("Email", placeholder="your@email.com")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("🔑 Login", use_container_width=True)
-            
-            if submitted:
-                if email and password:
+        col1, col2, col3 = st.columns([0.5, 3, 0.5])
+        with col2:
+            st.markdown("### Welcome Back! 👋")
+            with st.form("login_form"):
+                email = st.text_input("📧 Email", placeholder="your@email.com")
+                password = st.text_input("🔒 Password", type="password")
+                
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    submitted = st.form_submit_button("🔑 Login", use_container_width=True)
+                with col_b:
+                    demo_login = st.form_submit_button("🧪 Demo", use_container_width=True)
+                
+                if submitted and email and password:
                     with st.spinner("Logging in..."):
                         success, message = login_user(email, password)
                         if success:
                             st.success(message)
-                            time.sleep(1)
                             st.rerun()
                         else:
                             st.error(message)
-                else:
-                    st.error("Please fill in all fields")
+                
+                if demo_login:
+                    success, message = login_user("demo@example.com", "demo123")
+                    if success:
+                        st.success("Demo login successful!")
+                        st.rerun()
     
     with tab2:
-        st.markdown("### Create Your Account")
-        
-        with st.form("signup_form"):
-            name = st.text_input("Full Name", placeholder="John Doe")
-            email = st.text_input("Email", placeholder="your@email.com")
-            password = st.text_input("Password", type="password", help="Minimum 6 characters")
-            origin_city = st.text_input("Home City", value="Hyderabad")
-            submitted = st.form_submit_button("📝 Create Account", use_container_width=True)
-            
-            if submitted:
-                if name and email and password:
-                    if len(password) < 6:
-                        st.error("Password must be at least 6 characters")
-                    else:
-                        with st.spinner("Creating account..."):
-                            success, message = signup_user(email, name, password, origin_city)
-                            if success:
-                                st.success(message)
-                                time.sleep(1)
-                                st.rerun()
-                            else:
-                                st.error(message)
-                else:
-                    st.error("Please fill in all fields")
+        col1, col2, col3 = st.columns([0.5, 3, 0.5])
+        with col2:
+            st.markdown("### Create Account 🆕")
+            with st.form("signup_form"):
+                name = st.text_input("👤 Name", placeholder="Your Name")
+                email = st.text_input("📧 Email", placeholder="your@email.com")
+                password = st.text_input("🔒 Password", type="password")
+                city = st.text_input("🏙️ City", value="Hyderabad")
+                
+                if st.form_submit_button("📝 Create Account", use_container_width=True):
+                    if name and email and password:
+                        success, message = signup_user(email, name, password, city)
+                        if success:
+                            st.success(message)
+                            st.rerun()
+                        else:
+                            st.error(message)
     
-    # Demo info
-    st.markdown("---")
-    st.info("💡 **New to the platform?** Try guest mode for quick testing, or create an account to save your trips permanently!")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Compact features
+    st.markdown("### ✨ Features")
+    st.markdown("""
+    <div class="feature-cards">
+        <div class="feature-card">
+            <h4>🤖 AI Agents</h4>
+            <p>4 specialized AI agents plan your trip</p>
+        </div>
+        <div class="feature-card">
+            <h4>💾 Save Trips</h4>
+            <p>Account users save trips permanently</p>
+        </div>
+        <div class="feature-card">
+            <h4>🎯 Smart Planning</h4>
+            <p>Budget-aware with safety insights</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 def render_sidebar():
-    """Render authenticated user sidebar"""
     with st.sidebar:
-        # User profile
         if st.session_state.user_info:
             user = st.session_state.user_info
             profile_class = "guest-profile" if st.session_state.guest_mode else "user-profile"
@@ -343,98 +456,51 @@ def render_sidebar():
             st.markdown(f"""
             <div class="{profile_class}">
                 <div class="user-avatar">{user['name'][0].upper()}</div>
-                <h3>{user['name']}</h3>
-                <p>{user['email']}</p>
-                {'<small>🎯 Guest Mode - Data not saved</small>' if st.session_state.guest_mode else ''}
+                <h3 style="margin: 0;">{user['name']}</h3>
+                <p style="margin: 0.25rem 0; font-size: 0.85rem;">{user['email']}</p>
             </div>
             """, unsafe_allow_html=True)
         
-        # Quick stats
-        if st.session_state.user_stats:
-            stats = st.session_state.user_stats
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Trips", stats.get('total_trips', 0))
-            with col2:
-                st.metric("Rating", f"{stats.get('average_rating', 0):.1f}/5")
-            
-            if stats.get('total_budget', 0) > 0:
-                st.metric("Total Spent", f"${stats.get('total_budget', 0):.0f}")
-        
-        # Navigation
         st.markdown("---")
-        page = st.radio(
-            "**Navigation**",
-            ["🏠 Dashboard", "✈️ Plan New Trip", "📚 Trip History", "⚙️ Settings"],
-            key="nav_radio"
-        )
+        nav_options = ["🏠 Dashboard", "💬 AI Chat", "✈️ Plan New Trip", "📚 Trip History", "⚙️ Settings"]
         
-        # Account options
-        st.markdown("---")
-        if st.session_state.guest_mode:
-            if st.button("👤 Create Account", use_container_width=True):
-                logout_user()
+        for option in nav_options:
+            if st.button(option, use_container_width=True, 
+                        key=f"nav_{option}", 
+                        type="primary" if st.session_state.current_page == option else "secondary"):
+                st.session_state.current_page = option
                 st.rerun()
         
+        st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             logout_user()
             st.rerun()
         
-        return page
+        return st.session_state.current_page
 
 def render_dashboard():
-    """Render user dashboard"""
     st.header("📊 Your Travel Dashboard")
+    st.markdown("""
+    <div class="dashboard-card">
+        <h2>🗺️ Ready for Your Next Adventure?</h2>
+        <p>Start planning your dream trip!</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    if not st.session_state.user_stats:
-        load_user_data()
-    
-    stats = st.session_state.user_stats
-    
-    if stats.get('total_trips', 0) == 0:
-        if st.session_state.guest_mode:
-            st.info("🗺️ Welcome, Guest! Start planning your adventure below. Note: Trip data won't be saved permanently in guest mode.")
-        else:
-            st.info("🗺️ No trips planned yet! Start your first adventure below.")
-        
-        if st.button("✈️ Plan Your First Trip", use_container_width=True):
-            # st.session_state.nav_radio = "✈️ Plan New Trip"
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("✈️ Plan Your First Trip", use_container_width=True, type="primary"):
+            st.session_state.current_page = "✈️ Plan New Trip"
             st.rerun()
-    else:
-        # Display metrics
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("✈️ Total Adventures", stats.get('total_trips', 0))
-        with col2:
-            st.metric("💵 Money Spent", f"${stats.get('total_budget', 0):.0f}")
-        with col3:
-            avg_rating = stats.get('average_rating', 0)
-            st.metric("⭐ Avg Rating", f"{avg_rating:.1f}/5")
-        with col4:
-            if st.session_state.guest_mode:
-                st.metric("👤 Mode", "Guest")
-            else:
-                member_since = datetime.fromisoformat(stats['user']['member_since']).strftime('%b %Y')
-                st.metric("📅 Member Since", member_since)
-        
-        # Favorite destinations
-        st.subheader("🗺️ Your Favorite Destinations")
-        fav_destinations = stats.get('favorite_destinations', [])
-        if fav_destinations:
-            for dest, count in fav_destinations:
-                st.write(f"📍 **{dest}** - {count} trip{'s' if count > 1 else ''}")
-        else:
-            st.info("Plan more trips to see your favorites!")
 
 def render_trip_planning():
-    """Render trip planning page"""
+    """Render trip planning page with full API integration"""
     st.header("🗺️ Plan Your Next Adventure")
     
     if st.session_state.guest_mode:
         st.info("🎯 **Guest Mode:** Your trip will be planned but not saved permanently. Create an account to save your trips!")
     
-    # Default preferences (guest mode or from API)
+    # Default preferences
     default_prefs = {
         "origin_city": "Hyderabad",
         "favorite_interests": ["culture", "food"],
@@ -452,18 +518,18 @@ def render_trip_planning():
         
         col_a, col_b = st.columns(2)
         with col_a:
-            traveler_name = st.text_input("Your Name", value=st.session_state.user_info.get('name', 'Traveler'))
-            origin_city = st.text_input("Origin City", value=default_prefs.get('origin_city', 'Hyderabad'))
-            destination_override = st.text_input("Preferred Destination (optional)", placeholder="Leave blank for AI suggestion")
-            visa_passport = st.text_input("Passport Nationality", value="Indian")
+            traveler_name = st.text_input("👤 Your Name", value=st.session_state.user_info.get('name', 'Traveler'))
+            origin_city = st.text_input("🏙️ Origin City", value=default_prefs.get('origin_city', 'Hyderabad'))
+            destination_override = st.text_input("🎯 Preferred Destination (optional)", placeholder="Leave blank for AI suggestion")
+            visa_passport = st.text_input("🛂 Passport Nationality", value="Indian")
         
         with col_b:
-            days = st.slider("Trip Duration (days)", 1, 14, 5)
-            month = st.selectbox("Travel Month", 
+            days = st.slider("📅 Trip Duration (days)", 1, 14, 5)
+            month = st.selectbox("🗓️ Travel Month", 
                 ["January", "February", "March", "April", "May", "June",
                  "July", "August", "September", "October", "November", "December"],
-                index=8)
-            budget_total = st.number_input("Total Budget (USD)", 
+                index=5)  # Default to June
+            budget_total = st.number_input("💰 Total Budget (USD)", 
                                          min_value=100.0, 
                                          value=float(default_prefs.get('preferred_budget', 1500)), 
                                          step=100.0)
@@ -477,7 +543,7 @@ def render_trip_planning():
             default=default_prefs.get('favorite_interests', ["culture", "food"])
         )
         
-        submitted = st.form_submit_button("🚀 Generate Travel Plan", use_container_width=True)
+        submitted = st.form_submit_button("🚀 Generate Travel Plan", use_container_width=True, type="primary")
     
     # Process form submission
     if submitted:
@@ -504,7 +570,7 @@ def render_trip_planning():
                                                headers={"Content-Type": "application/json"},
                                                timeout=60)
                     except:
-                        st.error("Cannot connect to the backend. Please try again.")
+                        st.error("🔌 Cannot connect to the backend. Please try again.")
                         return
                 else:
                     # For authenticated users
@@ -553,7 +619,10 @@ def render_trip_planning():
                     st.error("🔌 Cannot connect to the backend API.")
 
 def display_trip_plan(plan):
-    """Display the complete trip plan"""
+    """Display the complete trip plan with improved layout"""
+    
+    st.markdown("---")
+    st.header("🎯 Your Perfect Trip Plan")
     
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📍 Destination", 
@@ -564,7 +633,7 @@ def display_trip_plan(plan):
     ])
     
     with tab1:
-        st.header(f"🎯 Perfect Match: {plan['destination']}")
+        st.subheader(f"🎯 Perfect Match: {plan['destination']}")
         dest_info = plan['destination_info']
         
         col1, col2 = st.columns([3, 1])
@@ -572,18 +641,18 @@ def display_trip_plan(plan):
             st.info(f"**Why this destination?** {dest_info.get('reason', 'AI selected this based on your preferences!')}")
             
             if 'highlights' in dest_info:
-                st.subheader("✨ Must-See Highlights")
+                st.markdown("### ✨ Must-See Highlights")
                 for i, highlight in enumerate(dest_info['highlights'], 1):
                     st.write(f"🌟 **{i}.** {highlight}")
         
         with col2:
-            st.subheader("📊 Quick Info")
+            st.markdown("### 📊 Quick Info")
             st.metric("🌟 AI Score", "9.2/10")
             st.metric("🌡️ Weather", "Perfect")
             st.metric("💸 Cost Level", "Moderate")
     
     with tab2:
-        st.header("🗓️ Your Perfect Itinerary")
+        st.subheader("🗓️ Your Perfect Itinerary")
         
         for day_plan in plan['itinerary']:
             with st.expander(f"📅 Day {day_plan['day']}: {day_plan.get('title', 'Adventure Day!')}", expanded=True):
@@ -605,7 +674,7 @@ def display_trip_plan(plan):
                         st.write(f"• {meal}")
     
     with tab3:
-        st.header("💰 Smart Budget Breakdown")
+        st.subheader("💰 Smart Budget Breakdown")
         
         budget_analysis = plan['budget_analysis']
         breakdown = budget_analysis.get('breakdown', {})
@@ -613,7 +682,7 @@ def display_trip_plan(plan):
         col1, col2 = st.columns([1, 1])
         
         with col1:
-            st.subheader("💵 Cost Categories")
+            st.markdown("### 💵 Cost Categories")
             for category, amount in breakdown.items():
                 percentage = (amount / sum(breakdown.values())) * 100 if breakdown.values() else 0
                 st.metric(
@@ -623,7 +692,7 @@ def display_trip_plan(plan):
                 )
         
         with col2:
-            st.subheader("📊 Budget Summary")
+            st.markdown("### 📊 Budget Summary")
             total = budget_analysis.get('total', 0)
             daily_avg = budget_analysis.get('daily_average', 0)
             
@@ -641,13 +710,13 @@ def display_trip_plan(plan):
                     st.write(f"💡 {tip}")
     
     with tab4:
-        st.header("🛡️ Safety & Travel Guide")
+        st.subheader("🛡️ Safety & Travel Guide")
         safety = plan['safety_info']
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("🚨 Safety Overview")
+            st.markdown("### 🚨 Safety Overview")
             safety_level = safety.get('safety_level', 'Unknown')
             
             if safety_level.lower() == 'low':
@@ -664,7 +733,7 @@ def display_trip_plan(plan):
                 st.success("🛂 **Visa Required:** No - Easy travel!")
         
         with col2:
-            st.subheader("💉 Health & Emergency")
+            st.markdown("### 💉 Health & Emergency")
             
             if 'vaccinations' in safety:
                 st.markdown("**Recommended Vaccinations:**")
@@ -677,12 +746,12 @@ def display_trip_plan(plan):
                     st.write(f"📞 **{service.title()}:** {number}")
         
         if 'safety_tips' in safety:
-            st.subheader("⚠️ Essential Safety Tips")
+            st.markdown("### ⚠️ Essential Safety Tips")
             for i, tip in enumerate(safety['safety_tips'], 1):
                 st.write(f"{i}. {tip}")
     
     with tab5:
-        st.header("💭 Rate Your Trip Plan")
+        st.subheader("💭 Rate Your Trip Plan")
         
         col1, col2 = st.columns(2)
         
@@ -704,12 +773,36 @@ def display_trip_plan(plan):
                 st.balloons()
         
         with col2:
-            st.subheader("🤖 AI Agent Process")
+            st.markdown("### 🤖 AI Agent Process")
             for msg in plan['agent_messages']:
                 st.info(f"**{msg['agent']}:** {msg['content']}")
 
+def load_user_data():
+    """Load user trips and statistics"""
+    if st.session_state.guest_mode:
+        # For guest mode, use session data
+        st.session_state.user_trips = st.session_state.guest_trips
+        st.session_state.user_stats = {
+            "total_trips": len(st.session_state.guest_trips),
+            "total_budget": sum([trip.get("budget_total", 0) for trip in st.session_state.guest_trips]),
+            "average_rating": 4.5,
+            "favorite_destinations": [],
+            "user": st.session_state.user_info
+        }
+        return
+    
+    # Load trips for authenticated users
+    response = make_api_request("/trips")
+    if response and response.status_code == 200:
+        data = response.json()
+        st.session_state.user_trips = data.get("trips", [])
+    
+    # Load stats
+    response = make_api_request("/stats")
+    if response and response.status_code == 200:
+        st.session_state.user_stats = response.json()
 def render_trip_history():
-    """Render trip history page"""
+    """Render trip history page with improved layout"""
     st.header("📚 Your Trip History")
     
     if st.session_state.guest_mode:
@@ -721,17 +814,26 @@ def render_trip_history():
     trips = st.session_state.user_trips
     
     if not trips:
-        msg = "🗺️ No trips in this session yet!" if st.session_state.guest_mode else "🗺️ No trips planned yet!"
-        st.info(msg + " Start your first adventure.")
-        if st.button("✈️ Plan Your First Trip"):
-            st.session_state.nav_radio = "✈️ Plan New Trip"
-            st.rerun()
+        # Empty state with action
+        st.markdown("""
+        <div class="dashboard-card">
+            <h3>🗺️ No Adventures Yet!</h3>
+            <p>Start planning your first amazing trip!</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("✈️ Plan Your First Trip", use_container_width=True, type="primary"):
+                st.session_state.current_page = "✈️ Plan New Trip"
+                st.rerun()
     else:
         st.write(f"📊 Showing {len(trips)} trip{'s' if len(trips) != 1 else ''}")
         
         # Display trips
         for i, trip in enumerate(reversed(trips)):
-            created_date = datetime.fromisoformat(trip.get('created_at', '2024-01-01T00:00:00')).strftime('%b %Y')
+            created_date = datetime.fromisoformat(trip.get('created_at', '2024-01-01T00:00:00')).strftime('%b %d, %Y')
+            
             with st.expander(f"✈️ {trip.get('destination', 'Unknown')} - {trip.get('month', '')} ({created_date})", expanded=False):
                 col1, col2, col3 = st.columns([2, 1, 1])
                 
@@ -742,138 +844,312 @@ def render_trip_history():
                     st.write(f"**🎯 Interests:** {', '.join(trip.get('interests', []))}")
                 
                 with col2:
-                    if st.button("📊 View Full Plan", key=f"view_{i}"):
+                    if st.button("📊 View Details", key=f"view_{i}", use_container_width=True):
                         if 'trip_data' in trip:
                             st.session_state.viewing_plan = trip['trip_data']
+                            st.rerun()
                 
                 with col3:
                     st.write(f"**📅 Created:** {created_date}")
                     if st.session_state.guest_mode:
-                        st.caption("Session data only")
+                        st.caption("🎯 Session data only")
         
         # Display selected plan
         if hasattr(st.session_state, 'viewing_plan'):
             st.markdown("---")
             st.header("📋 Trip Plan Details")
-            display_trip_plan(st.session_state.viewing_plan)
-            if st.button("❌ Close Plan View"):
+            plan = st.session_state.viewing_plan
+            
+            # Show basic trip info
+            st.subheader(f"✈️ Trip to {plan['destination']}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                dest_info = plan.get('destination_info', {})
+                st.write(f"**📍 Destination:** {plan['destination']}")
+                if 'reason' in dest_info:
+                    st.write(f"**💭 Why this place:** {dest_info['reason']}")
+            with col2:
+                if plan.get('within_budget'):
+                    st.success("✅ Within Budget")
+                else:
+                    st.warning("⚠️ Slightly Over Budget")
+            
+            # Show itinerary
+            st.subheader("🗓️ Daily Itinerary")
+            for day in plan.get('itinerary', []):
+                with st.expander(f"Day {day['day']}: {day.get('title', 'Adventure Day')}", expanded=False):
+                    col_a, col_b = st.columns([3, 1])
+                    with col_a:
+                        st.write(f"🌅 **Morning:** {day.get('morning', 'Start your day!')}")
+                        st.write(f"☀️ **Afternoon:** {day.get('afternoon', 'Explore!')}")
+                        st.write(f"🌙 **Evening:** {day.get('evening', 'Relax!')}")
+                    with col_b:
+                        st.write("**🍽️ Food:**")
+                        for meal in day.get('meal_suggestions', ['Local cuisine']):
+                            st.write(f"• {meal}")
+            
+            # Show budget
+            if 'budget_analysis' in plan:
+                st.subheader("💰 Budget Analysis")
+                budget_data = plan['budget_analysis']
+                if 'breakdown' in budget_data:
+                    col_x, col_y = st.columns(2)
+                    with col_x:
+                        for category, amount in list(budget_data['breakdown'].items())[:3]:
+                            st.metric(category.replace('_', ' ').title(), f"${amount:.2f}")
+                    with col_y:
+                        for category, amount in list(budget_data['breakdown'].items())[3:]:
+                            st.metric(category.replace('_', ' ').title(), f"${amount:.2f}")
+            
+            # Close button
+            if st.button("❌ Close Details", type="secondary"):
                 del st.session_state.viewing_plan
                 st.rerun()
 
 def render_settings():
-    """Render settings page"""
-    st.header("⚙️ Settings & Preferences")
+    st.header("⚙️ Settings")
+    st.info("Settings page - customize your preferences here.")
+
+
+
+# Phase 3A: Chat Interface Functions
+def init_chat_session():
+    if 'chat_messages' not in st.session_state:
+        st.session_state.chat_messages = []
+    if 'chat_session_id' not in st.session_state:
+        st.session_state.chat_session_id = str(uuid.uuid4())
+    if 'current_agent' not in st.session_state:
+        st.session_state.current_agent = "assistant"
+
+def get_agent_info(agent_type):
+    """Get agent avatar and name"""
+    agents = {
+        "assistant": {"avatar": "🤖", "name": "Travel Assistant", "class": ""},
+        "destination": {"avatar": "🎯", "name": "Destination Expert", "class": "destination-agent"},
+        "budget": {"avatar": "💰", "name": "Budget Analyst", "class": "budget-agent"},
+        "itinerary": {"avatar": "🗓️", "name": "Itinerary Planner", "class": "itinerary-agent"},
+        "safety": {"avatar": "🛡️", "name": "Safety Advisor", "class": "safety-agent"}
+    }
+    return agents.get(agent_type, agents["assistant"])
+
+def add_chat_message(content, sender="user", agent_type="assistant"):
+    """Add a message to chat history"""
+    message = {
+        "id": str(uuid.uuid4()),
+        "content": content,
+        "sender": sender,
+        "agent_type": agent_type,
+        "timestamp": datetime.now().isoformat()
+    }
+    st.session_state.chat_messages.append(message)
+
+def display_chat_messages():
+    """Display all chat messages"""
+    for message in st.session_state.chat_messages:
+        if message["sender"] == "user":
+            st.markdown(f"""
+            <div class="message-bubble user-message">
+                {message["content"]}
+                <br><small style="opacity: 0.8; font-size: 0.8rem;">
+                    {datetime.fromisoformat(message["timestamp"]).strftime("%I:%M %p")}
+                </small>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            agent_info = get_agent_info(message["agent_type"])
+            st.markdown(f"""
+            <div class="message-bubble ai-message">
+                <span class="agent-avatar {agent_info['class']}">{agent_info['avatar']}</span>
+                <strong>{agent_info['name']}</strong>
+                <br><br>
+                {message["content"]}
+                <br><small style="opacity: 0.6; font-size: 0.8rem;">
+                    {datetime.fromisoformat(message["timestamp"]).strftime("%I:%M %p")}
+                </small>
+            </div>
+            """, unsafe_allow_html=True)
+
+def process_chat_message(user_message: str):
+    """Process user message and return AI response"""
+    message_lower = user_message.lower()
     
-    if st.session_state.guest_mode:
-        st.info("🎯 **Guest Mode:** Settings are temporary. Create an account to save preferences permanently!")
+    # Simple intent detection for Phase 3A
+    if any(word in message_lower for word in ["go", "visit", "travel", "trip", "destination"]):
+        agent_type = "destination"
+        content = f"Great choice! I can help you find the perfect destination. 🎯\n\n"
         
-        # Guest mode simple preferences
-        with st.form("guest_settings_form"):
-            st.subheader("🎯 Session Preferences")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                origin_city = st.text_input("Default Origin City", value="Hyderabad")
-                preferred_budget = st.number_input("Preferred Budget Range (USD)", 
-                                                 min_value=100, 
-                                                 value=1500,
-                                                 step=100)
-            
-            with col2:
-                favorite_interests = st.multiselect(
-                    "Favorite Interests",
-                    ["beach", "mountains", "culture", "history", "food", "adventure", 
-                     "wildlife", "shopping", "nightlife", "relaxation", "photography",
-                     "museums", "temples", "nature", "city tour"],
-                    default=["culture", "food"]
-                )
-            
-            if st.form_submit_button("💾 Save Session Preferences", use_container_width=True):
-                st.success("✅ Session preferences saved!")
+        if any(country in message_lower for country in ["japan", "tokyo", "kyoto"]):
+            content += "Japan is incredible! Cherry blossoms in spring, amazing food, rich culture. Let me get our budget analyst involved for cost planning.\n\n"
+        elif any(country in message_lower for country in ["europe", "paris", "london", "italy"]):
+            content += "Europe offers incredible diversity! From Paris's romance to Italy's cuisine to London's history. What draws you to Europe?\n\n"
+        else:
+            content += "What type of experience interests you? Adventure, culture, relaxation, food scenes?\n\n"
         
-        # Account creation prompt
-        st.markdown("---")
-        st.subheader("🚀 Ready to Save Your Data?")
-        st.write("Create an account to:")
-        st.write("• Save trips permanently")
-        st.write("• Access trip history across devices")
-        st.write("• Get personalized recommendations")
-        
-        if st.button("👤 Create Account Now", use_container_width=True):
-            logout_user()
-            st.rerun()
+        content += "Tell me about your budget and timeframe!"
+    
+    elif any(word in message_lower for word in ["budget", "cost", "price", "$", "expensive"]):
+        agent_type = "budget"
+        content = "Perfect! Let me help with budget planning! 💰\n\n"
+        content += "I can break down costs for:\n"
+        content += "• ✈️ Flights\n• 🏨 Accommodation\n• 🍽️ Food & drinks\n• 🎯 Activities\n• 🚌 Local transport\n\n"
+        content += "What's your total budget and destination?"
+    
+    elif any(word in message_lower for word in ["days", "weeks", "duration"]):
+        agent_type = "itinerary"
+        content = "Time planning is key! 🗓️\n\n"
+        content += "I recommend:\n• 3-5 days: City exploration\n• 1 week: Country highlights\n• 2+ weeks: Multi-destination\n\n"
+        content += "How many days do you have and where to?"
+    
+    elif any(word in message_lower for word in ["safe", "visa", "passport"]):
+        agent_type = "safety"
+        content = "Safety first! 🛡️\n\n"
+        content += "I provide:\n• Visa requirements\n• Safety ratings\n• Health recommendations\n• Emergency contacts\n\n"
+        content += "Which destination and what's your passport country?"
     
     else:
-        # Authenticated user settings
-        # Load current preferences
-        prefs_response = make_api_request("/auth/preferences")
-        current_prefs = {}
-        if prefs_response and prefs_response.status_code == 200:
-            current_prefs = prefs_response.json()
+        agent_type = "assistant"
+        if any(word in message_lower for word in ["hello", "hi", "hey"]):
+            content = "Hello! Welcome to your AI travel team! 👋\n\n"
+            content += "Meet your specialists:\n🎯 Destination Expert\n💰 Budget Analyst\n🗓️ Itinerary Planner\n🛡️ Safety Advisor\n\n"
+            content += "Just tell me your travel dreams!"
+        else:
+            content = "I'm here to help plan your perfect trip! 🌍\n\n"
+            content += "Share with me:\n• Where you want to go\n• Your budget range\n• How many days\n• What you love doing\n\n"
+            content += "Let's create something amazing!"
+    
+    return {"content": content, "agent": agent_type}
+
+def get_quick_replies():
+    """Get contextual quick reply suggestions"""
+    if not st.session_state.chat_messages:
+        return ["I want to visit Japan", "Europe trip", "$2000 budget", "7-day vacation"]
+    
+    last_message = st.session_state.chat_messages[-1]["content"].lower()
+    
+    if "budget" in last_message:
+        return ["$1000-2000", "$2000-4000", "$4000+", "I'm flexible"]
+    elif "destination" in last_message:
+        return ["Asia", "Europe", "Americas", "Surprise me!"]
+    elif "days" in last_message:
+        return ["Weekend (3-4 days)", "1 week", "2 weeks", "1 month"]
+    else:
+        return ["Tell me more", "Sounds perfect!", "What about costs?", "Other options?"]
+
+def render_chat_interface():
+    """Render the main chat interface - Phase 3A"""
+    init_chat_session()
+    
+    # Chat header
+    st.markdown("""
+    <div class="chat-container">
+        <div class="chat-header">
+            <h2 style="margin: 0;">💬 Chat with AI Travel Agents</h2>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">Plan your perfect trip through conversation</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Welcome message if new chat
+    if not st.session_state.chat_messages:
+        add_chat_message(
+            "Hi! I'm your AI travel assistant with a team of specialists! 🌍\n\n"
+            "🎯 **Destination Expert** - finds amazing places\n"
+            "💰 **Budget Analyst** - manages your money\n"
+            "🗓️ **Itinerary Planner** - creates daily plans\n"
+            "🛡️ **Safety Advisor** - keeps you safe\n\n"
+            "Just tell me about your dream trip and we'll make it happen! Where would you like to go?",
+            sender="ai",
+            agent_type="assistant"
+        )
+    
+    # Chat messages
+    st.markdown('<div class="chat-messages-container">', unsafe_allow_html=True)
+    display_chat_messages()
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Chat input
+    st.markdown("### 💬 Your Message")
+    
+    col1, col2 = st.columns([5, 1])
+    
+    with col1:
+        user_input = st.text_input(
+            "Message",
+            key="chat_input",
+            placeholder="Where would you like to travel?",
+            label_visibility="collapsed"
+        )
+    
+    with col2:
+        send_clicked = st.button("Send", use_container_width=True, type="primary")
+    
+    # Process user input
+    if send_clicked and user_input.strip():
+        # Add user message
+        add_chat_message(user_input, sender="user")
         
-        with st.form("settings_form"):
-            st.subheader("🎯 Travel Preferences")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                origin_city = st.text_input("Default Origin City", value=current_prefs.get('origin_city', 'Hyderabad'))
-                preferred_budget = st.number_input("Preferred Budget Range (USD)", 
-                                                 min_value=100, 
-                                                 value=int(current_prefs.get('preferred_budget', 1500)),
-                                                 step=100)
-            
-            with col2:
-                favorite_interests = st.multiselect(
-                    "Favorite Interests",
-                    ["beach", "mountains", "culture", "history", "food", "adventure", 
-                     "wildlife", "shopping", "nightlife", "relaxation", "photography",
-                     "museums", "temples", "nature", "city tour"],
-                    default=current_prefs.get('favorite_interests', ["culture", "food"])
-                )
-            
-            if st.form_submit_button("💾 Save Settings", use_container_width=True):
-                update_data = {
-                    "origin_city": origin_city,
-                    "preferred_budget": preferred_budget,
-                    "favorite_interests": favorite_interests
-                }
-                
-                response = make_api_request("/auth/preferences", "PUT", update_data)
-                if response and response.status_code == 200:
-                    st.success("✅ Settings saved successfully!")
-                else:
-                    st.error("❌ Failed to save settings")
+        # Get AI response
+        with st.spinner("AI thinking..."):
+            time.sleep(1)  # Simulate thinking time
+            ai_response = process_chat_message(user_input)
+            add_chat_message(ai_response["content"], sender="ai", agent_type=ai_response["agent"])
         
-        # Account info
-        st.subheader("👤 Account Information")
-        if st.session_state.user_info:
-            user = st.session_state.user_info
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"**Name:** {user['name']}")
-                st.write(f"**Email:** {user['email']}")
-            with col2:
-                st.write(f"**Member Since:** {datetime.fromisoformat(user['created_at']).strftime('%B %Y')}")
-                st.write(f"**Status:** {'Active' if user.get('is_active', True) else 'Inactive'}")
+        # Clear input and rerun
+        st.rerun()
+    
+    # Quick replies
+    if st.session_state.chat_messages:
+        st.markdown("### 💡 Quick Replies")
+        quick_replies = get_quick_replies()
+        
+        cols = st.columns(len(quick_replies))
+        for i, reply in enumerate(quick_replies):
+            with cols[i]:
+                if st.button(reply, key=f"quick_{i}", use_container_width=True):
+                    add_chat_message(reply, sender="user")
+                    ai_response = process_chat_message(reply)
+                    add_chat_message(ai_response["content"], sender="ai", agent_type=ai_response["agent"])
+                    st.rerun()
+    
+    # Chat actions
+    st.markdown("---")
+    col_a, col_b, col_c = st.columns(3)
+    
+    with col_a:
+        if st.button("🗑️ Clear Chat"):
+            st.session_state.chat_messages = []
+            st.rerun()
+    
+    with col_b:
+        if st.button("💾 Save Chat"):
+            st.success("Chat saved! (Phase 3B: will save to history)")
+    
+    with col_c:
+        if len(st.session_state.chat_messages) > 4:
+            if st.button("📋 Create Trip Plan"):
+                st.info("🚀 Phase 3B: Will generate trip plan from chat!")
+
+def render_ai_chat_page():
+    """Main chat page renderer"""
+    st.header("💬 AI Travel Chat - Phase 3A")
+    
+    if st.session_state.guest_mode:
+        st.info("🎯 **Guest Mode:** Chat history won't be saved permanently. Create an account to save conversations!")
+    
+    render_chat_interface()
 
 def main():
-    """Main application logic"""
-    
-    # Check authentication
     if not st.session_state.authenticated:
         render_login_page()
         return
     
-    # Load user data on first load
-    if not st.session_state.user_trips and not st.session_state.user_stats:
-        load_user_data()
-    
-    # Render sidebar and get current page
     page = render_sidebar()
     
-    # Route to appropriate page
     if page == "🏠 Dashboard":
         render_dashboard()
+    elif page == "💬 AI Chat":
+        render_ai_chat_page()
     elif page == "✈️ Plan New Trip":
         render_trip_planning()
     elif page == "📚 Trip History":
@@ -881,16 +1157,13 @@ def main():
     elif page == "⚙️ Settings":
         render_settings()
 
-# Enhanced footer
-st.markdown("---")
+# Footer
 st.markdown("""
-<div style='text-align: center; color: #666; padding: 1rem;'>
+<div class="footer-section">
     <h4>🤖 Powered by Multi-Agent AI System - Phase 2</h4>
     <p>Authentication • Database • Multi-user Support • Guest Mode</p>
-    <p style='font-size: 0.8em;'>✨ Complete AI Travel Planning Platform ✨</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Run the main application
 if __name__ == "__main__":
     main()

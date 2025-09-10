@@ -1,4 +1,4 @@
-# app/auth/models.py
+# app/auth/models.py - Fixed version without circular references
 from sqlalchemy import Column, String, Boolean, DateTime, Integer, DECIMAL, Text, ARRAY, JSON
 from sqlalchemy.dialects.postgresql import UUID, INET, JSONB
 from sqlalchemy.ext.declarative import declarative_base
@@ -21,11 +21,11 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     last_login = Column(DateTime(timezone=True))
     
-    # Relationships
-    preferences = relationship("UserPreference", back_populates="user", uselist=False)
-    trips = relationship("Trip", back_populates="user")
-    feedback = relationship("Feedback", back_populates="user")
-    sessions = relationship("UserSession", back_populates="user")
+    # FIXED: Simplified relationships to avoid circular references
+    preferences = relationship("UserPreference", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    trips = relationship("Trip", back_populates="user", cascade="all, delete-orphan")
+    feedback = relationship("Feedback", back_populates="user", cascade="all, delete-orphan")
+    sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
 
 class UserPreference(Base):
     __tablename__ = "user_preferences"
@@ -39,7 +39,7 @@ class UserPreference(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
-    # Relationships
+    # Relationship
     user = relationship("User", back_populates="preferences")
 
 class Trip(Base):
@@ -52,11 +52,11 @@ class Trip(Base):
     origin_city = Column(String(255), nullable=False)
     days = Column(Integer, nullable=False)
     month = Column(String(50), nullable=False)
-    budget_total = Column(DECIMAL(10, 2), nullable=False)
+    budget_total = Column(DECIMAL(10,2), nullable=False)
     interests = Column(ARRAY(Text), nullable=False)
     visa_passport = Column(String(100))
     preferred_destination = Column(String(255))
-    trip_data = Column(JSONB, nullable=False)  # Complete AI-generated trip plan
+    trip_data = Column(JSONB, nullable=False)  # Complete trip plan from AI
     status = Column(String(50), default="completed")
     is_favorite = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -64,7 +64,7 @@ class Trip(Base):
     
     # Relationships
     user = relationship("User", back_populates="trips")
-    feedback = relationship("Feedback", back_populates="trip")
+    feedback = relationship("Feedback", back_populates="trip", cascade="all, delete-orphan")
 
 class Feedback(Base):
     __tablename__ = "feedback"
@@ -77,9 +77,9 @@ class Feedback(Base):
     comment = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # Relationships
+    # FIXED: Proper relationships
     trip = relationship("Trip", back_populates="feedback")
-    user = relationship("Feedback", back_populates="user")
+    user = relationship("User", back_populates="feedback")
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
@@ -92,5 +92,5 @@ class UserSession(Base):
     user_agent = Column(Text)
     ip_address = Column(INET)
     
-    # Relationships
+    # Relationship
     user = relationship("User", back_populates="sessions")

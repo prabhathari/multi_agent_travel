@@ -32,3 +32,13 @@ streamlit_app_old.py
 streamlit_app_phase1.py
 docker-compose.phase2.yml
 data/*
+apply_ui_fixes.sh
+deploy_fixes.sh
+fix_trip_history.sh
+fix_trip_planning.sh
+sqlfix.sh
+streamlit_app.py.backup
+streamlit_app.py.backup_20250910_123159
+streamlit_app.py.backup_before_fix
+streamlit_app.py.backup_phase2
+streamlit_app_updated.py
