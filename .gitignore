@@ -25,3 +25,10 @@ logs.sh
 *.log
 #env
 .env.prod
+
+app/main.py.backup
+docker-compose.enhanced.yml
+streamlit_app_old.py
+streamlit_app_phase1.py
+docker-compose.phase2.yml
+data/*

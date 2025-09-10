@@ -12,3 +12,16 @@ httpx
 aiohttp
 slowapi
 python-multipart
+# Add these new dependencies
+streamlit-option-menu
+plotly
+uuid
+sqlalchemy
+psycopg2-binary
+alembic
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+streamlit-authenticator
+python-multipart
+email-validator

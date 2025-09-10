@@ -1,6 +1,6 @@
-# app/main.py - Complete version with security features
+# app/main.py - Complete version with Phase 2 authentication and database features
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -21,6 +21,13 @@ from app.agents.itinerary_agent import ItineraryAgent
 from app.agents.budget_agent import BudgetAgent
 from app.agents.safety_agent import SafetyAgent
 
+# Phase 2: Import authentication and database
+from app.auth.routes import router as auth_router
+from app.auth.routes import get_current_user
+from app.database import init_database, get_db
+from app.auth.models import User, Trip, Feedback
+from sqlalchemy.orm import Session
+
 # Create rate limiter
 limiter = Limiter(
     key_func=get_remote_address,
@@ -29,10 +36,13 @@ limiter = Limiter(
 
 # Create FastAPI app with conditional docs (hidden in production)
 app = FastAPI(
-    title="Multi-Agent Travel Planner API",
+    title="Multi-Agent Travel Planner API - Phase 2",
     docs_url="/docs" if os.getenv("DEBUG", "false").lower() == "true" else None,
     redoc_url="/redoc" if os.getenv("DEBUG", "false").lower() == "true" else None,
 )
+
+# Phase 2: Include authentication router
+app.include_router(auth_router)
 
 # Add rate limit exception handler
 app.state.limiter = limiter
@@ -40,10 +50,10 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add security middleware - TrustedHost
 #if os.getenv("ALLOWED_HOSTS"):
-  #  app.add_middleware(
-   #     TrustedHostMiddleware,
-    #    allowed_hosts=os.getenv("ALLOWED_HOSTS", "localhost").split(",")
-   # )
+#    app.add_middleware(
+#        TrustedHostMiddleware,
+#        allowed_hosts=os.getenv("ALLOWED_HOSTS", "localhost").split(",")
+#    )
 
 # Add GZip compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -55,9 +65,15 @@ app.add_middleware(
     allow_origins=allowed_origins if os.getenv("DEBUG", "false").lower() != "true" else ["*"],
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
     max_age=3600,
 )
+
+# Phase 2: Database initialization
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup"""
+    init_database()
 
 # Add request size validation middleware
 @app.middleware("http")
@@ -109,12 +125,15 @@ class TripResponse(BaseModel):
 @app.get("/")
 def read_root():
     return {
-        "message": "Multi-Agent Travel Planner API",
+        "message": "Multi-Agent Travel Planner API - Phase 2",
         "status": "running",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "features": ["Authentication", "Database", "Multi-user"],
         "endpoints": {
             "health": "/health",
-            "plan": "/plan",
+            "plan": "/plan (requires auth)",
+            "auth": "/auth/login, /auth/signup",
+            "trips": "/trips (user history)",
             "docs": "/docs (disabled in production)"
         }
     }
@@ -124,7 +143,9 @@ def read_root():
 def health_check():
     return {
         "status": "healthy",
-        "service": "multi-agent-travel-planner"
+        "service": "multi-agent-travel-planner",
+        "version": "2.0.0",
+        "database": "connected"
     }
 
 # Model info endpoint
@@ -147,14 +168,22 @@ def get_model_info():
             "message": str(e)
         }
 
-# Main trip planning endpoint with rate limiting
+# Phase 2: Enhanced trip planning endpoint with authentication and database
 @app.post("/plan", response_model=TripResponse)
 @limiter.limit("5 per minute")  # Rate limit: 5 requests per minute
-async def generate_trip_plan(request: Request, trip_request: TripRequest):
+async def generate_trip_plan(
+    request: Request, 
+    trip_request: TripRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Generate a complete trip plan using multiple AI agents.
     
-    Rate limited to 5 requests per minute per IP address.
+    **Phase 2 Features:**
+    - Requires user authentication
+    - Saves trip to user's personal database
+    - Rate limited to 5 requests per minute per IP address
     """
     
     agent_messages = []
@@ -174,7 +203,7 @@ async def generate_trip_plan(request: Request, trip_request: TripRequest):
         context = trip_request.dict()
         
         # Step 1: Destination Selection
-        print(f"Processing trip request for {trip_request.traveler_name}")
+        print(f"Processing trip request for {trip_request.traveler_name} (User: {current_user.name}, ID: {current_user.id})")
         dest_agent = DestinationAgent()
         destination_info = dest_agent.process(context)
         context['destination'] = destination_info['destination']
@@ -223,6 +252,38 @@ async def generate_trip_plan(request: Request, trip_request: TripRequest):
             "content": f"Safety level: {safety_info.get('safety_level', 'Unknown')}, Visa required: {safety_info.get('visa_required', 'Check requirements')}"
         })
         
+        # Create complete trip plan
+        complete_plan = {
+            "destination": destination_info['destination'],
+            "destination_info": destination_info,
+            "itinerary": itinerary,
+            "budget_analysis": budget_analysis,
+            "safety_info": safety_info,
+            "within_budget": within_budget,
+            "agent_messages": agent_messages
+        }
+        
+        # Phase 2: Save trip to database instead of JSON file
+        db_trip = Trip(
+            user_id=current_user.id,
+            title=f"{trip_request.days}-day trip to {destination_info['destination']}",
+            destination=destination_info['destination'],
+            origin_city=trip_request.origin_city,
+            days=trip_request.days,
+            month=trip_request.month,
+            budget_total=trip_request.budget_total,
+            interests=trip_request.interests,
+            visa_passport=trip_request.visa_passport,
+            preferred_destination=trip_request.preferred_destination,
+            trip_data=complete_plan  # Store complete AI response as JSONB
+        )
+        
+        db.add(db_trip)
+        db.commit()
+        db.refresh(db_trip)
+        
+        print(f"✅ Trip saved to database with ID: {db_trip.id} for user: {current_user.email}")
+        
         # Return the complete trip plan
         return TripResponse(
             destination=destination_info['destination'],
@@ -246,17 +307,263 @@ async def generate_trip_plan(request: Request, trip_request: TripRequest):
         else:
             raise HTTPException(status_code=500, detail="An error occurred while generating your trip plan. Please try again.")
 
+# Phase 2: Get user's trip history from database
+@app.get("/trips")
+async def get_user_trips(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get authenticated user's trip history from database"""
+    
+    trips = db.query(Trip).filter(
+        Trip.user_id == current_user.id
+    ).order_by(Trip.created_at.desc()).offset(skip).limit(limit).all()
+    
+    trip_list = []
+    for trip in trips:
+        trip_list.append({
+            "id": str(trip.id),
+            "title": trip.title,
+            "destination": trip.destination,
+            "origin_city": trip.origin_city,
+            "days": trip.days,
+            "month": trip.month,
+            "budget_total": float(trip.budget_total),
+            "interests": trip.interests,
+            "created_at": trip.created_at.isoformat(),
+            "is_favorite": trip.is_favorite,
+            "trip_data": trip.trip_data  # Complete plan data
+        })
+    
+    return {
+        "trips": trip_list,
+        "total": len(trip_list),
+        "user": {
+            "id": str(current_user.id),
+            "name": current_user.name,
+            "email": current_user.email
+        }
+    }
+
+# Phase 2: Submit feedback for a trip
+@app.post("/trips/{trip_id}/feedback")
+async def submit_trip_feedback(
+    trip_id: str,
+    feedback_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Submit feedback for a specific trip"""
+    
+    # Verify trip belongs to user
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.user_id == current_user.id
+    ).first()
+    
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    
+    # Check if feedback already exists
+    existing_feedback = db.query(Feedback).filter(
+        Feedback.trip_id == trip_id,
+        Feedback.user_id == current_user.id
+    ).first()
+    
+    if existing_feedback:
+        # Update existing feedback
+        existing_feedback.rating = feedback_data.get("rating", existing_feedback.rating)
+        existing_feedback.aspects = feedback_data.get("aspects", existing_feedback.aspects)
+        existing_feedback.comment = feedback_data.get("comment", existing_feedback.comment)
+    else:
+        # Create new feedback
+        feedback = Feedback(
+            trip_id=trip_id,
+            user_id=current_user.id,
+            rating=feedback_data.get("rating", 5),
+            aspects=feedback_data.get("aspects", []),
+            comment=feedback_data.get("comment", "")
+        )
+        db.add(feedback)
+    
+    db.commit()
+    
+    return {"message": "Feedback submitted successfully"}
+
+# Phase 2: Get trip feedback
+@app.get("/trips/{trip_id}/feedback")
+async def get_trip_feedback(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get feedback for a specific trip"""
+    
+    # Verify trip belongs to user
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.user_id == current_user.id
+    ).first()
+    
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    
+    feedback = db.query(Feedback).filter(
+        Feedback.trip_id == trip_id,
+        Feedback.user_id == current_user.id
+    ).first()
+    
+    if not feedback:
+        return {"feedback": None}
+    
+    return {
+        "feedback": {
+            "id": str(feedback.id),
+            "rating": feedback.rating,
+            "aspects": feedback.aspects,
+            "comment": feedback.comment,
+            "created_at": feedback.created_at.isoformat()
+        }
+    }
+
+# Phase 2: Get user statistics
+@app.get("/stats")
+async def get_user_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user travel statistics"""
+    
+    # Count trips
+    total_trips = db.query(Trip).filter(Trip.user_id == current_user.id).count()
+    
+    # Calculate total budget spent
+    trips = db.query(Trip).filter(Trip.user_id == current_user.id).all()
+    total_budget = sum([float(trip.budget_total) for trip in trips])
+    
+    # Calculate average rating
+    feedbacks = db.query(Feedback).filter(Feedback.user_id == current_user.id).all()
+    avg_rating = sum([f.rating for f in feedbacks]) / max(len(feedbacks), 1)
+    
+    # Get favorite destinations
+    destinations = {}
+    for trip in trips:
+        dest = trip.destination
+        destinations[dest] = destinations.get(dest, 0) + 1
+    
+    top_destinations = sorted(destinations.items(), key=lambda x: x[1], reverse=True)[:5]
+    
+    return {
+        "total_trips": total_trips,
+        "total_budget": total_budget,
+        "average_rating": round(avg_rating, 1),
+        "favorite_destinations": top_destinations,
+        "user": {
+            "name": current_user.name,
+            "email": current_user.email,
+            "member_since": current_user.created_at.isoformat()
+        }
+    }
+
+# Add this new endpoint for guest users
+@app.post("/plan-guest", response_model=TripResponse)
+@limiter.limit("10 per minute")  # Higher limit for guests
+async def generate_trip_plan_guest(request: Request, trip_request: TripRequest):
+    """
+    Generate a trip plan for guest users (no authentication required)
+    """
+    
+    agent_messages = []
+    
+    # Same validation as authenticated endpoint
+    if trip_request.days < 1 or trip_request.days > 30:
+        raise HTTPException(status_code=400, detail="Days must be between 1 and 30")
+    
+    if trip_request.budget_total < 100 or trip_request.budget_total > 100000:
+        raise HTTPException(status_code=400, detail="Budget must be between $100 and $100,000")
+    
+    if len(trip_request.interests) == 0:
+        raise HTTPException(status_code=400, detail="At least one interest must be selected")
+    
+    try:
+        # Same AI agent processing as authenticated users
+        context = trip_request.dict()
+        
+        # AI agents (same as authenticated)
+        dest_agent = DestinationAgent()
+        destination_info = dest_agent.process(context)
+        context['destination'] = destination_info['destination']
+        
+        agent_messages.append({
+            "agent": "DestinationAgent",
+            "role": "Destination Expert",
+            "content": f"Selected {destination_info['destination']}: {destination_info.get('reason', '')}"
+        })
+        
+        itin_agent = ItineraryAgent()
+        itinerary = itin_agent.process(context)
+        
+        agent_messages.append({
+            "agent": "ItineraryAgent",
+            "role": "Itinerary Planner",
+            "content": f"Created {len(itinerary)}-day detailed itinerary"
+        })
+        
+        budget_agent = BudgetAgent()
+        budget_analysis = budget_agent.process(context)
+        
+        if 'breakdown' in budget_analysis:
+            total_cost = sum(budget_analysis['breakdown'].values())
+        else:
+            total_cost = budget_analysis.get('total', 0)
+        
+        within_budget = total_cost <= trip_request.budget_total
+        
+        agent_messages.append({
+            "agent": "BudgetAgent",
+            "role": "Budget Analyst",
+            "content": f"Estimated total cost: ${total_cost:.2f} (Budget: ${trip_request.budget_total})"
+        })
+        
+        safety_agent = SafetyAgent()
+        safety_info = safety_agent.process(context)
+        
+        agent_messages.append({
+            "agent": "SafetyAgent",
+            "role": "Safety Advisor",
+            "content": f"Safety level: {safety_info.get('safety_level', 'Unknown')}"
+        })
+        
+        print(f"Guest trip plan generated for {trip_request.traveler_name} to {destination_info['destination']}")
+        
+        # Return plan (not saved to database)
+        return TripResponse(
+            destination=destination_info['destination'],
+            destination_info=destination_info,
+            itinerary=itinerary,
+            budget_analysis=budget_analysis,
+            safety_info=safety_info,
+            within_budget=within_budget,
+            agent_messages=agent_messages
+        )
+        
+    except Exception as e:
+        print(f"Error in guest trip planning: {str(e)}")
+        raise HTTPException(status_code=500, detail="An error occurred while generating your trip plan. Please try again.")
 # Test endpoint (only in debug mode)
 if os.getenv("DEBUG", "false").lower() == "true":
     @app.get("/test")
     def test_endpoint():
         """Test endpoint to verify API is working"""
         return {
-            "message": "API is working!",
+            "message": "Phase 2 API is working!",
             "debug_mode": True,
+            "features": ["Authentication", "Database", "Multi-user"],
             "environment": {
                 "llm_provider": os.getenv("LLM_PROVIDER", "not set"),
-                "allowed_hosts": os.getenv("ALLOWED_HOSTS", "not set"),
+                "database_url": "configured" if os.getenv("DATABASE_URL") else "not set",
             }
         }
 
@@ -266,8 +573,8 @@ if __name__ == "__main__":
     
     # Check if we're in development mode
     if os.getenv("DEBUG", "false").lower() == "true":
-        print("🚀 Starting in DEBUG mode with auto-reload...")
+        print("🚀 Starting Phase 2 in DEBUG mode with auto-reload...")
         uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
     else:
-        print("🚀 Starting in PRODUCTION mode...")
+        print("🚀 Starting Phase 2 in PRODUCTION mode...")
         uvicorn.run(app, host="0.0.0.0", port=8000, workers=2)

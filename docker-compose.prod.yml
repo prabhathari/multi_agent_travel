@@ -1,7 +1,26 @@
-# docker-compose.prod.yml
 version: '3.8'
 
 services:
+  # PostgreSQL Database
+  database:
+    image: postgres:13-alpine
+    container_name: travel-database
+    restart: always
+    env_file: .env.prod
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - travel-net
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-travel_user} -d ${POSTGRES_DB:-travel_planner}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Backend API
   backend:
     build:
       context: .
@@ -9,27 +28,31 @@ services:
     container_name: travel-backend
     restart: always
     env_file: .env.prod
-#    environment:
- #     - GROQ_API_KEY=${GROQ_API_KEY}
-  #    - GEMINI_API_KEY=${GEMINI_API_KEY}
-   #   - LLM_PROVIDER=${LLM_PROVIDER:-groq}
-    #  - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost}
+   # environment:
+      # Database
+    #  - DATABASE_URL=postgresql://travel_user:secure_travel_pass_2024@database:5432/travel_planner
+      # API Keys
+     # - GROQ_API_KEY=${GROQ_API_KEY}
+     # - GEMINI_API_KEY=${GEMINI_API_KEY}
+     # - LLM_PROVIDER=${LLM_PROVIDER:-groq}
+      # Security
+     # - SECRET_KEY=your-super-secret-jwt-key-change-in-production
+     # - ACCESS_TOKEN_EXPIRE_MINUTES=30
+     # - ALGORITHM=HS256
+      # App Settings
      # - DEBUG=false
+     # - ALLOWED_HOSTS=localhost,127.0.0.1
+    depends_on:
+      database:
+        condition: service_healthy
     networks:
       - travel-net
     expose:
       - "8000"
     security_opt:
       - no-new-privileges:true
-    read_only: true
-    volumes:
-      - /tmp
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
 
+  # Frontend
   frontend:
     build:
       context: .
@@ -39,20 +62,20 @@ services:
     restart: always
     environment:
       - BACKEND_URL=http://backend:8000
+      - DATABASE_URL=postgresql://travel_user:secure_travel_pass_2024@database:5432/travel_planner
+    depends_on:
+      backend:
+        condition: service_started
+      database:
+        condition: service_healthy
     networks:
       - travel-net
     expose:
       - "8501"
     security_opt:
       - no-new-privileges:true
-    depends_on:
-      - backend
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
 
+  # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
     container_name: travel-nginx
@@ -62,15 +85,16 @@ services:
       - "443:443"
     volumes:
       - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
     networks:
       - travel-net
     depends_on:
       - backend
       - frontend
-    security_opt:
-      - no-new-privileges:true
 
 networks:
   travel-net:
     driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
