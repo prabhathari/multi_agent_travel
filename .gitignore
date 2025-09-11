@@ -43,3 +43,12 @@ streamlit_app.py.backup_before_fix
 streamlit_app.py.backup_phase2
 streamlit_app_updated.py
 add_chat_interface.sh
+emergency_restore.sh
+fix_sidebar.sh
+integrate_contextual_chat.sh
+minimal_test.sh
+quick_fix.sh
+restore_full_app.sh
+safe_phase3b.sh
+streamlit_app.py.backup_phase3a
+streamlit_app.py.backup_working_20250911_105656
