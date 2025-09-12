@@ -578,3 +578,188 @@ if __name__ == "__main__":
     else:
         print("🚀 Starting Phase 2 in PRODUCTION mode...")
         uvicorn.run(app, host="0.0.0.0", port=8000, workers=2)
+
+# ==========================================
+# REAL LLM CHAT ENDPOINT - Phase 3B Final
+# ==========================================
+
+from pydantic import BaseModel
+from app.llm import get_llm_client
+
+class ChatRequest(BaseModel):
+    message: str
+    trip_context: dict = None
+
+class ChatResponse(BaseModel):
+    response: str
+    agent: str = "🤖 AI Assistant"
+
+@app.post("/chat", response_model=ChatResponse)
+@limiter.limit("20 per minute")  # Rate limit: 20 chat messages per minute
+async def chat_with_ai(
+    request: Request,
+    chat_request: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Real LLM-powered chat endpoint for travel assistance
+    """
+    
+    try:
+        # Get LLM client (Groq/Gemini)
+        llm = get_llm_client()
+        
+        # Prepare context-aware system prompt
+        system_prompt = """You are an expert travel assistant. You provide helpful, accurate, and specific travel advice.
+
+IMPORTANT INSTRUCTIONS:
+- Be conversational and friendly
+- Use emojis appropriately (but not excessively)
+- Keep responses under 300 words
+- Be specific and actionable
+- If user has a trip context, use it to provide personalized advice
+
+Response format: Provide direct, helpful answers without unnecessary introductions."""
+
+        # Add trip context if available
+        if chat_request.trip_context:
+            destination = chat_request.trip_context.get('destination', 'the destination')
+            budget_info = chat_request.trip_context.get('budget_analysis', {})
+            itinerary = chat_request.trip_context.get('itinerary', [])
+            safety_info = chat_request.trip_context.get('safety_info', {})
+            
+            context_prompt = f"""
+CURRENT TRIP CONTEXT:
+- Destination: {destination}
+- Duration: {len(itinerary)} days
+- Budget: ${budget_info.get('total', 0):,.2f}
+- Safety Level: {safety_info.get('safety_level', 'Unknown')}
+
+Use this context to provide specific, personalized advice about their {destination} trip.
+"""
+            
+            system_prompt += context_prompt
+        
+        # Prepare user prompt with context awareness
+        if chat_request.trip_context:
+            destination = chat_request.trip_context.get('destination', 'your destination')
+            user_prompt = f"User is asking about their {destination} trip: {chat_request.message}"
+        else:
+            user_prompt = f"User question: {chat_request.message}"
+        
+        # Call the real LLM
+        try:
+            ai_response = llm.generate(user_prompt, system_prompt)
+            
+            # Determine agent type based on question content
+            message_lower = chat_request.message.lower()
+            
+            if any(word in message_lower for word in ['budget', 'cost', 'money', 'price']):
+                agent = "💰 Budget Analyst"
+            elif any(word in message_lower for word in ['day', 'itinerary', 'plan', 'schedule']):
+                agent = "🗓️ Itinerary Planner"
+            elif any(word in message_lower for word in ['safe', 'safety', 'visa', 'danger']):
+                agent = "🛡️ Safety Advisor"
+            elif any(word in message_lower for word in ['food', 'restaurant', 'eat', 'cuisine']):
+                agent = "🍽️ Food Expert"
+            elif any(word in message_lower for word in ['weather', 'climate', 'pack', 'clothes']):
+                agent = "🌤️ Weather Expert"
+            else:
+                agent = "🤖 AI Travel Assistant"
+            
+            return ChatResponse(
+                response=ai_response,
+                agent=agent
+            )
+            
+        except Exception as llm_error:
+            # Fallback if LLM fails
+            print(f"LLM Error: {llm_error}")
+            
+            fallback_response = "I'm having trouble processing your request right now. Please try rephrasing your question or try again in a moment."
+            
+            return ChatResponse(
+                response=fallback_response,
+                agent="🤖 AI Assistant"
+            )
+    
+    except Exception as e:
+        print(f"Chat endpoint error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Chat service temporarily unavailable")
+
+# Guest chat endpoint (no authentication required)
+@app.post("/chat-guest", response_model=ChatResponse)
+@limiter.limit("10 per minute")  # Lower limit for guests
+async def chat_with_ai_guest(
+    request: Request,
+    chat_request: ChatRequest
+):
+    """
+    Chat endpoint for guest users (no authentication required)
+    """
+    
+    try:
+        # Get LLM client
+        llm = get_llm_client()
+        
+        # Basic system prompt for guests
+        system_prompt = """You are a travel assistant. Provide helpful travel advice.
+
+INSTRUCTIONS:
+- Be friendly and conversational
+- Keep responses under 250 words
+- Use emojis appropriately
+- Be encouraging about travel planning
+
+For guests without accounts, focus on general travel advice and encourage them to create an account for personalized trip planning."""
+
+        # Add context if available
+        if chat_request.trip_context:
+            destination = chat_request.trip_context.get('destination', 'the destination')
+            context_info = f"\nUser has a planned trip to {destination}. Provide specific advice about this destination."
+            system_prompt += context_info
+        
+        # Generate response
+        try:
+            ai_response = llm.generate(chat_request.message, system_prompt)
+            
+            return ChatResponse(
+                response=ai_response,
+                agent="🤖 AI Travel Assistant"
+            )
+            
+        except Exception as llm_error:
+            # Fallback for guests
+            fallback_response = f"I understand you're asking about: '{chat_request.message}'\n\nI'm having some technical difficulties right now. For the best travel planning experience with personalized AI assistance, consider creating an account!"
+            
+            return ChatResponse(
+                response=fallback_response,
+                agent="🤖 Travel Assistant"
+            )
+    
+    except Exception as e:
+        print(f"Guest chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Chat service temporarily unavailable")
+
+# Chat history endpoint (for authenticated users)
+@app.get("/chat/history")
+async def get_chat_history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = 50
+):
+    """
+    Get user's recent chat history (if you want to implement persistence)
+    For now, this is a placeholder - you could store chat messages in database
+    """
+    
+    # This is a placeholder - you could implement chat history storage
+    # For now, chat history is maintained in the frontend session state
+    
+    return {
+        "message": "Chat history is maintained in session",
+        "note": "Implement database storage for persistent chat history"
+    }
+
+print("✅ Real LLM chat endpoints added to FastAPI backend!")
