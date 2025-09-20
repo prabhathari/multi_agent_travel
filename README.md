@@ -4,11 +4,11 @@ An intelligent travel planning application that uses multiple AI agents to creat
 
 UI:
 <img width="1903" height="636" alt="image" src="https://github.com/user-attachments/assets/7d6f1905-5088-4fc2-944b-3782f3514c00" />
-
+After login:
 <img width="1919" height="736" alt="image" src="https://github.com/user-attachments/assets/5eac87aa-06ff-425f-b5f0-511711e10da9" />
-
+itinerary:
 <img width="1899" height="682" alt="image" src="https://github.com/user-attachments/assets/f76bd1a9-8e85-4e14-831e-949a2d626af8" />
-
+Chat bot:
 <img width="1919" height="622" alt="image" src="https://github.com/user-attachments/assets/57f801c4-be52-4a4c-91c1-fb69e0c3c4e6" />
 
 
